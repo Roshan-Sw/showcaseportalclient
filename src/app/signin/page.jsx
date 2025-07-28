@@ -249,7 +249,7 @@ const SignIn = () => {
           type: "success",
         });
 
-        router.push("/admin");
+        router.push("/admin/users");
         setQrCodeImage(null);
         setToken("");
       } else {

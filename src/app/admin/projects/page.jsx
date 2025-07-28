@@ -5,14 +5,14 @@ import { MdEdit, MdSync } from "react-icons/md";
 import { BeatLoader } from "react-spinners";
 import { DataGrid } from "@mui/x-data-grid";
 import { Box, Paper } from "@mui/material";
-import Select from "react-select";
 import toast, { Toaster } from "react-hot-toast";
 import dynamic from "next/dynamic";
-import { BASE_URL, BASE_AUTH_URL } from "@/services/baseUrl";
+import { BASE_URL } from "@/services/baseUrl";
 import { useSession } from "next-auth/react";
+import Select from "react-select";
 
-const UserFormPopup = dynamic(
-  () => import("@/components/admin/user-form/UserFormPopup"),
+const ProjectFormPopup = dynamic(
+  () => import("@/components/admin/project-form/ProjectFormPopup"),
   { ssr: false }
 );
 
@@ -48,25 +48,19 @@ const customSelectStyles = {
   }),
 };
 
-const Users = () => {
-  const [users, setUsers] = useState([]);
+const Projects = () => {
+  const [projects, setProjects] = useState([]);
+  const [clients, setClients] = useState([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(0);
   const [limit] = useState(100);
   const [keyword, setKeyword] = useState("");
-  const [role, setRole] = useState(null);
+  const [clientId, setClientId] = useState("");
   const [loading, setLoading] = useState(false);
   const [fetchError, setFetchError] = useState(null);
   const [openDialog, setOpenDialog] = useState(false);
-  const [editUser, setEditUser] = useState(null);
+  const [editProject, setEditProject] = useState(null);
   const { data: session } = useSession();
-
-  const roleOptions = [
-    { value: "STANDARD_USER", label: "Standard User" },
-    { value: "HR_ASSISTANT", label: "HR Assistant" },
-    { value: "HR_HEAD", label: "HR Head" },
-    { value: "NO_ACCESS", label: "No Access" },
-  ];
 
   const columns = [
     {
@@ -76,45 +70,31 @@ const Users = () => {
       renderCell: (params) => <span>{params.value || "-"}</span>,
     },
     {
-      field: "name",
-      headerName: "Name",
+      field: "client_id",
+      headerName: "Client Name",
       width: 200,
-      renderCell: (params) => (
-        <span>
-          {params.row.first_name || params.row.last_name
-            ? `${params.row.first_name || ""} ${
-                params.row.last_name || ""
-              }`.trim()
-            : "-"}
-        </span>
-      ),
+      renderCell: (params) => {
+        const client = clients.find((c) => c.id === params.value);
+        return <span>{client ? client.client_name : params.value || "-"}</span>;
+      },
     },
     {
-      field: "email",
-      headerName: "Email",
+      field: "project_name",
+      headerName: "Project Name",
       width: 200,
       renderCell: (params) => <span>{params.value || "-"}</span>,
     },
     {
-      field: "phone",
-      headerName: "Phone",
-      width: 150,
+      field: "description",
+      headerName: "Description",
+      width: 250,
       renderCell: (params) => <span>{params.value || "-"}</span>,
     },
     {
-      field: "role",
-      headerName: "Role",
-      width: 150,
-      renderCell: (params) => (
-        <span>
-          {params.value
-            ? params.value
-                .replace(/_/g, " ")
-                .toLowerCase()
-                .replace(/\b\w/g, (c) => c.toUpperCase())
-            : "-"}
-        </span>
-      ),
+      field: "priority",
+      headerName: "Priority",
+      width: 100,
+      renderCell: (params) => <span>{params.value || 0}</span>,
     },
     {
       field: "edit",
@@ -124,7 +104,7 @@ const Users = () => {
       renderCell: (params) => (
         <button
           onClick={() => handleOpenEditDialog(params.row)}
-          aria-label="Edit user"
+          aria-label="Edit project"
         >
           <MdEdit className="w-5 h-5 text-gray-500" />
         </button>
@@ -132,23 +112,57 @@ const Users = () => {
     },
   ];
 
-  const handleOpenEditDialog = (user) => {
-    setEditUser(user);
+  const handleOpenEditDialog = (project) => {
+    setEditProject(project);
     setOpenDialog(true);
   };
 
   const handleCloseDialog = () => {
     setOpenDialog(false);
-    setEditUser(null);
+    setEditProject(null);
   };
 
-  const handleSuccess = () => {
-    setOpenDialog(false);
-    setEditUser(null);
-    fetchUsers();
+  const fetchClients = async () => {
+    try {
+      const query = new URLSearchParams({
+        page: "1",
+        limit: "10000",
+      }).toString();
+
+      const response = await fetch(`${BASE_URL}/api/clients/list?${query}`, {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${session?.accessToken}`,
+          "Content-Type": "application/json",
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch clients");
+      }
+
+      const data = await response.json();
+      const records = (data.data?.clients || [])
+        .filter((record) => {
+          if (!record || typeof record !== "object" || !record.id) {
+            console.warn("Invalid client entry:", record);
+            return false;
+          }
+          return true;
+        })
+        .map((record) => ({
+          ...record,
+          client_name: record.client_name || null,
+        }));
+
+      setClients(records);
+    } catch (error) {
+      console.error("Failed to fetch clients:", error);
+      setClients([]);
+    }
   };
 
-  const fetchUsers = async () => {
+  const fetchProjects = async () => {
     try {
       setLoading(true);
       setFetchError(null);
@@ -157,45 +171,44 @@ const Users = () => {
         page: (page + 1).toString(),
         limit: limit.toString(),
         ...(keyword && { keyword }),
-        ...(role && { role }),
+        ...(clientId && { client_id: clientId }),
       }).toString();
 
-      const response = await fetch(`${BASE_URL}/api/users/list?${query}`, {
+      const response = await fetch(`${BASE_URL}/api/projects/list?${query}`, {
         method: "GET",
         headers: {
-          Authorization: `Bearer ${session.accessToken}`,
+          Authorization: `Bearer ${session?.accessToken}`,
           "Content-Type": "application/json",
         },
       });
 
       if (!response.ok) {
-        throw new Error("Failed to fetch users");
+        throw new Error("Failed to fetch projects");
       }
 
       const data = await response.json();
-      const records = (data.data?.users || [])
+      const records = (data.data?.projects || [])
         .filter((record) => {
           if (!record || typeof record !== "object" || !record.id) {
-            console.warn("Invalid user entry:", record);
+            console.warn("Invalid project entry:", record);
             return false;
           }
           return true;
         })
         .map((record) => ({
           ...record,
-          first_name: record.first_name || null,
-          last_name: record.last_name || null,
-          email: record.email || null,
-          phone: record.phone || null,
-          role: record.role || null,
+          client_id: record.client_id || null,
+          project_name: record.project_name || null,
+          description: record.description || null,
+          priority: record.priority || 0,
         }));
 
-      setUsers(records);
+      setProjects(records);
       setTotal(data.data?.total || 0);
     } catch (error) {
-      console.error("Failed to fetch users:", error);
-      setFetchError("Failed to load users. Please try again.");
-      setUsers([]);
+      console.error("Failed to fetch projects:", error);
+      setFetchError("Failed to load projects. Please try again.");
+      setProjects([]);
       setTotal(0);
     } finally {
       setLoading(false);
@@ -203,8 +216,16 @@ const Users = () => {
   };
 
   useEffect(() => {
-    fetchUsers();
-  }, [page, keyword, role]);
+    if (session?.accessToken) {
+      fetchClients();
+    }
+  }, [session?.accessToken]);
+
+  useEffect(() => {
+    if (session?.accessToken) {
+      fetchProjects();
+    }
+  }, [page, keyword, clientId, session?.accessToken]);
 
   const handleFilterChange = (field, value) => {
     setPage(0);
@@ -212,68 +233,102 @@ const Users = () => {
       case "keyword":
         setKeyword(value);
         break;
-      case "role":
-        setRole(value);
+      case "clientId":
+        setClientId(value);
         break;
     }
   };
 
-  const handleSyncUsers = async () => {
+  const handleSuccess = () => {
+    setOpenDialog(false);
+    setEditProject(null);
+    fetchProjects();
+  };
+
+  const handleSyncProjects = async () => {
     try {
       setLoading(true);
       setFetchError(null);
 
-      const authResponse = await fetch(
-        `${BASE_AUTH_URL}/api/user-auth/fetch-all`
+      const apiResponse = await fetch(
+        "https://api.work.spiderworks.org/api/projects",
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        }
       );
 
-      if (!authResponse.ok) {
-        throw new Error("Failed to fetch users from auth service");
+      if (!apiResponse.ok) {
+        throw new Error("Failed to fetch projects from external API");
       }
-      const authUsers = await authResponse.json();
 
-      const transformedUsers = (authUsers.data || authUsers).map((user) => {
-        let first_name = null;
-        let last_name = null;
-        if (user.name) {
-          const nameParts = user.name.trim().split(" ");
-          first_name = nameParts[0] || null;
-          last_name =
-            nameParts.length > 1 ? nameParts.slice(1).join(" ") : null;
-        }
+      const apiData = await apiResponse.json();
+      const externalProjects = apiData.data || [];
 
-        return {
-          id: parseInt(user.id, 10),
-          first_name,
-          last_name,
-          email: user.email || null,
-          phone: user.phone || null,
-        };
-      });
+      const projectsToSync = externalProjects
+        .filter((project) => {
+          if (!project.id || !project.projectName) {
+            console.warn("Invalid project entry:", project);
+            return false;
+          }
+          return true;
+        })
+        .map((project) => {
+          let startdate = null;
+          if (project.startDate) {
+            const [day, month, year] = project.startDate.split("-");
+            if (day && month && year) {
+              startdate = `${year}-${month.padStart(2, "0")}-${day.padStart(
+                2,
+                "0"
+              )}`;
+            }
+          }
 
-      const syncResponse = await fetch(`${BASE_URL}/api/users/syncing`, {
+          return {
+            id: Number(project.id),
+            clientId:
+              project.clientId !== null ? Number(project.clientId) : null,
+            projectName: project.projectName,
+            description: project.description || null,
+            priority: project.priority || 0,
+            startdate: startdate,
+            scopes: project.scopes || [],
+          };
+        });
+
+      if (projectsToSync.length === 0) {
+        throw new Error("No valid projects to sync");
+      }
+
+      const syncResponse = await fetch(`${BASE_URL}/api/projects/syncing`, {
         method: "POST",
         headers: {
+          Authorization: `Bearer ${session?.accessToken}`,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ users: transformedUsers }),
+        body: JSON.stringify({ projects: projectsToSync }),
       });
 
       if (!syncResponse.ok) {
         const errorData = await syncResponse.json();
-        throw new Error(errorData.message || "Failed to sync users");
+        throw new Error(errorData.message || "Failed to sync projects");
       }
 
       const syncData = await syncResponse.json();
-      toast.success(syncData.message || "Users synced successfully!", {
+      toast.success(syncData.message || "Projects synced successfully!", {
         position: "top-right",
       });
 
-      await fetchUsers();
+      await fetchProjects();
     } catch (error) {
-      console.error("Failed to sync users:", error);
-      setFetchError("Failed to sync users. Please try again.");
-      toast.error(error.message || "Failed to sync users.", {
+      console.error("Failed to sync projects:", error);
+      setFetchError(
+        error.message || "Failed to sync projects. Please try again."
+      );
+      toast.error(error.message || "Failed to sync projects.", {
         position: "top-right",
       });
     } finally {
@@ -282,21 +337,25 @@ const Users = () => {
   };
 
   const CustomNoRowsOverlay = () => (
-    <Box sx={{ p: 2, textAlign: "center", color: "gray" }}>No users found</Box>
+    <Box sx={{ p: 2, textAlign: "center", color: "gray" }}>
+      No projects found
+    </Box>
   );
 
   return (
     <div className="min-h-screen bg-white p-4">
       <div className="flex justify-between items-center mb-4">
-        <h1 className="text-xl font-semibold text-gray-800">Users ({total})</h1>
+        <h1 className="text-xl font-semibold text-gray-800">
+          Projects ({total})
+        </h1>
         <div className="flex space-x-2">
           <button
-            onClick={handleSyncUsers}
+            onClick={handleSyncProjects}
             className="bg-[rgba(21,184,157,0.85)] hover:bg-[rgb(17,150,128)] text-white px-4 py-2 rounded-md flex items-center space-x-2"
             disabled={loading}
           >
             <MdSync className="w-5 h-5" />
-            <span>Sync Users</span>
+            <span>Sync Projects</span>
           </button>
         </div>
       </div>
@@ -304,18 +363,30 @@ const Users = () => {
       <div className="flex flex-col md:flex-row space-y-4 md:space-y-0 md:space-x-4 mb-4">
         <input
           type="text"
-          placeholder="Search Users"
+          placeholder="Search Projects"
           value={keyword}
           onChange={(e) => handleFilterChange("keyword", e.target.value)}
           className="border border-[rgba(21,184,157,0.85)] bg-white rounded-md px-3 py-2 w-full md:w-1/4 focus:outline-none focus:ring-2 focus:ring-[rgba(21,184,157,0.85)] focus:border-[rgba(21,184,157,0.85)] placeholder-gray-400"
         />
         <Select
-          options={roleOptions}
-          value={roleOptions.find((opt) => opt.value === role) || null}
-          onChange={(selected) =>
-            handleFilterChange("role", selected ? selected.value : null)
+          options={clients.map((client) => ({
+            value: client.id,
+            label: client.client_name,
+          }))}
+          value={
+            clients.find((client) => client.id === Number(clientId))
+              ? {
+                  value: Number(clientId),
+                  label: clients.find(
+                    (client) => client.id === Number(clientId)
+                  ).client_name,
+                }
+              : null
           }
-          placeholder="Role"
+          onChange={(selected) =>
+            handleFilterChange("clientId", selected ? selected.value : "")
+          }
+          placeholder="Select Client"
           styles={customSelectStyles}
           className="w-full md:w-1/5"
           isClearable
@@ -331,7 +402,7 @@ const Users = () => {
       ) : (
         <Paper sx={{ width: "100%", boxShadow: "none" }}>
           <DataGrid
-            rows={users}
+            rows={projects}
             getRowId={(row) => row.id}
             columns={columns}
             autoHeight
@@ -381,14 +452,14 @@ const Users = () => {
         </Paper>
       )}
 
-      <UserFormPopup
+      <ProjectFormPopup
         open={openDialog}
         onClose={handleCloseDialog}
         onSuccess={handleSuccess}
-        user={editUser}
+        project={editProject}
       />
     </div>
   );
 };
 
-export default Users;
+export default Projects;

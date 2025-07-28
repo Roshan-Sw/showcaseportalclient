@@ -2,9 +2,16 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { FiChevronDown, FiChevronRight } from "react-icons/fi";
-import { FaUsers, FaShieldAlt } from "react-icons/fa";
-import { useState, useEffect } from "react";
+import { FaUsers, FaBuilding } from "react-icons/fa";
+import {
+  FiChevronDown,
+  FiChevronRight,
+  FiFolder,
+  FiCpu,
+  FiGlobe,
+  FiVideo,
+} from "react-icons/fi";
+import { useState } from "react";
 import { Popover } from "@mui/material";
 
 export default function Sidebar({
@@ -14,7 +21,7 @@ export default function Sidebar({
   closeMobileSidebar,
 }) {
   const pathname = usePathname();
-  const [isUserManagementOpen, setIsUserManagementOpen] = useState(false);
+  const [isUserManagementOpen, setIsUserManagementOpen] = useState(true);
 
   const navItems = [
     {
@@ -30,13 +37,42 @@ export default function Sidebar({
           path: "/admin/users",
           exact: false,
         },
-        {
-          icon: <FaShieldAlt className="w-5 h-5 flex-shrink-0" />,
-          label: "Access Management",
-          path: "/admin/employee-permissions",
-          exact: false,
-        },
       ],
+    },
+    {
+      icon: <FaBuilding className="w-6 h-6 flex-shrink-0" />,
+      label: "Clients",
+      path: "/admin/clients",
+      exact: false,
+      isParent: false,
+    },
+    {
+      icon: <FiFolder className="w-6 h-6 flex-shrink-0" />,
+      label: "Projects",
+      path: "/admin/projects",
+      exact: false,
+      isParent: false,
+    },
+    {
+      icon: <FiCpu className="w-6 h-6 flex-shrink-0" />,
+      label: "Technologies",
+      path: "/admin/technologies",
+      exact: false,
+      isParent: false,
+    },
+    {
+      icon: <FiGlobe className="w-6 h-6 flex-shrink-0" />,
+      label: "Websites",
+      path: "/admin/websites",
+      exact: false,
+      isParent: false,
+    },
+    {
+      icon: <FiVideo className="w-6 h-6 flex-shrink-0" />,
+      label: "Videos",
+      path: "/admin/videos",
+      exact: false,
+      isParent: false,
     },
   ];
 
@@ -45,8 +81,7 @@ export default function Sidebar({
   };
 
   const isUserManagementActive = () => {
-    const userManagementPaths = ["/admin/users", "/admin/employee-permissions"];
-    return userManagementPaths.some((path) => pathname.startsWith(path));
+    return pathname.startsWith("/admin/users");
   };
 
   const showContent =
@@ -54,14 +89,6 @@ export default function Sidebar({
 
   const [anchorEl, setAnchorEl] = useState(null);
   const [hoveredParent, setHoveredParent] = useState(null);
-
-  useEffect(() => {
-    if (isUserManagementActive()) {
-      setIsUserManagementOpen(true);
-    } else {
-      setIsUserManagementOpen(false);
-    }
-  }, [pathname]);
 
   const handleUserManagementToggle = () => {
     setIsUserManagementOpen(!isUserManagementOpen);
@@ -77,7 +104,6 @@ export default function Sidebar({
   const handleParentMouseLeave = () => {
     if (!showContent) {
       setAnchorEl(null);
-      setHoveredParent(null);
     }
   };
 
@@ -119,40 +145,63 @@ export default function Sidebar({
                 <li
                   key={index}
                   className="px-4 py-2"
-                  onMouseLeave={handleParentMouseLeave}
+                  onMouseLeave={
+                    item.isParent ? handleParentMouseLeave : undefined
+                  }
                 >
                   <div className="relative">
-                    <div
-                      className={`flex items-center p-2 rounded-lg cursor-pointer ${
-                        isUserManagementActive()
-                          ? "bg-[rgba(21,184,157,0.85)] text-white"
-                          : "text-gray-600 hover:bg-[rgba(21,184,157,0.08)]"
-                      }`}
-                      onClick={
-                        showContent ? handleUserManagementToggle : undefined
-                      }
-                      onMouseEnter={(e) =>
-                        handleParentMouseEnter(e, item.label)
-                      }
-                    >
-                      {item.icon}
-                      {showContent && (
-                        <>
+                    {item.isParent ? (
+                      <div
+                        className={`flex items-center p-2 rounded-lg cursor-pointer ${
+                          isActive(item) ||
+                          (item.label === "User Management" &&
+                            isUserManagementActive())
+                            ? "bg-[rgba(21,184,157,0.85)] text-white"
+                            : "text-gray-600 hover:bg-[rgba(21,184,157,0.08)]"
+                        }`}
+                        onClick={
+                          showContent ? handleUserManagementToggle : undefined
+                        }
+                        onMouseEnter={(e) =>
+                          handleParentMouseEnter(e, item.label)
+                        }
+                      >
+                        {item.icon}
+                        {showContent && (
+                          <>
+                            <span className="ml-3 whitespace-nowrap overflow-hidden overflow-ellipsis flex-1">
+                              {item.label}
+                            </span>
+                            {isUserManagementOpen ? (
+                              <FiChevronDown className="w-4 h-4" />
+                            ) : (
+                              <FiChevronRight className="w-4 h-4" />
+                            )}
+                          </>
+                        )}
+                      </div>
+                    ) : (
+                      <Link
+                        href={item.path}
+                        className={`flex items-center p-2 rounded-lg cursor-pointer ${
+                          isActive(item)
+                            ? "bg-[rgba(21,184,157,0.85)] text-white"
+                            : "text-gray-600 hover:bg-[rgba(21,184,157,0.08)]"
+                        }`}
+                        onClick={isMobileView ? closeMobileSidebar : undefined}
+                      >
+                        {item.icon}
+                        {showContent && (
                           <span className="ml-3 whitespace-nowrap overflow-hidden overflow-ellipsis flex-1">
                             {item.label}
                           </span>
-                          {isUserManagementOpen ? (
-                            <FiChevronDown className="w-4 h-4" />
-                          ) : (
-                            <FiChevronRight className="w-4 h-4" />
-                          )}
-                        </>
-                      )}
-                    </div>
+                        )}
+                      </Link>
+                    )}
 
-                    {showContent && isUserManagementOpen && (
+                    {showContent && item.isParent && isUserManagementOpen && (
                       <ul className="ml-4 mt-2 space-y-1">
-                        {item.children.map((child, childIndex) => (
+                        {item.children?.map((child, childIndex) => (
                           <li key={childIndex}>
                             <Link
                               href={child.path}
@@ -161,6 +210,9 @@ export default function Sidebar({
                                   ? "bg-[rgba(21,184,157,0.85)] text-white"
                                   : "text-gray-600 hover:bg-[rgba(21,184,157,0.08)]"
                               }`}
+                              onClick={
+                                isMobileView ? closeMobileSidebar : undefined
+                              }
                             >
                               {child.icon}
                               <span className="ml-3 whitespace-nowrap overflow-hidden overflow-ellipsis">
@@ -214,7 +266,7 @@ export default function Sidebar({
           </div>
           {navItems
             .find((item) => item.label === hoveredParent)
-            ?.children.map((child, childIndex) => (
+            ?.children?.map((child, childIndex) => (
               <Link
                 key={childIndex}
                 href={child.path}
@@ -223,6 +275,7 @@ export default function Sidebar({
                     ? "bg-[rgba(21,184,157,0.85)] text-white"
                     : "text-gray-600"
                 }`}
+                onClick={isMobileView ? closeMobileSidebar : undefined}
               >
                 {child.icon}
                 <span className="ml-3">{child.label}</span>

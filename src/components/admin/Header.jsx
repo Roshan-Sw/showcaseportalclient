@@ -3,14 +3,21 @@
 import Image from "next/image";
 import { useState } from "react";
 import { FiLogOut } from "react-icons/fi";
-import { useSession } from "next-auth/react";
+import { useSession, signOut } from "next-auth/react";
+import { useRouter } from "next/navigation";
 
 export default function Header({ toggleSidebar, isSidebarOpen, isMobileView }) {
   const [isLogoutPopupOpen, setIsLogoutPopupOpen] = useState(false);
   const { data: session } = useSession();
+  const router = useRouter();
 
   const handleTogglePopup = () => {
     setIsLogoutPopupOpen(!isLogoutPopupOpen);
+  };
+
+  const handleLogout = async () => {
+    await signOut({ redirect: false });
+    router.push("/signin");
   };
 
   return (
@@ -107,7 +114,7 @@ export default function Header({ toggleSidebar, isSidebarOpen, isMobileView }) {
               <div className="absolute right-0 mt-2 w-44 bg-white border border-gray-200 rounded-md shadow-sm z-20">
                 <button
                   className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                  onClick={() => alert("Logged out")}
+                  onClick={handleLogout}
                 >
                   <FiLogOut className="w-5 h-5 mr-2" />
                   Logout

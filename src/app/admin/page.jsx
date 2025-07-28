@@ -17,7 +17,7 @@ export default function DashboardPage() {
       router.replace("/signin");
     } else {
       console.log("Valid session token found, redirecting to /admin");
-      router.replace("/admin");
+      router.replace("/admin/users");
     }
   }, [status, session, router]);
 

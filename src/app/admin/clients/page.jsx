@@ -5,14 +5,14 @@ import { MdEdit, MdSync } from "react-icons/md";
 import { BeatLoader } from "react-spinners";
 import { DataGrid } from "@mui/x-data-grid";
 import { Box, Paper } from "@mui/material";
-import Select from "react-select";
 import toast, { Toaster } from "react-hot-toast";
 import dynamic from "next/dynamic";
-import { BASE_URL, BASE_AUTH_URL } from "@/services/baseUrl";
+import { BASE_URL } from "@/services/baseUrl";
 import { useSession } from "next-auth/react";
+import Select from "react-select";
 
-const UserFormPopup = dynamic(
-  () => import("@/components/admin/user-form/UserFormPopup"),
+const ClientFormPopup = dynamic(
+  () => import("@/components/admin/client-form/ClientFormPopup"),
   { ssr: false }
 );
 
@@ -48,25 +48,19 @@ const customSelectStyles = {
   }),
 };
 
-const Users = () => {
-  const [users, setUsers] = useState([]);
+const Clients = () => {
+  const [clients, setClients] = useState([]);
+  const [countries, setCountries] = useState([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(0);
   const [limit] = useState(100);
   const [keyword, setKeyword] = useState("");
-  const [role, setRole] = useState(null);
+  const [countryId, setCountryId] = useState("");
   const [loading, setLoading] = useState(false);
   const [fetchError, setFetchError] = useState(null);
   const [openDialog, setOpenDialog] = useState(false);
-  const [editUser, setEditUser] = useState(null);
+  const [editClient, setEditClient] = useState(null);
   const { data: session } = useSession();
-
-  const roleOptions = [
-    { value: "STANDARD_USER", label: "Standard User" },
-    { value: "HR_ASSISTANT", label: "HR Assistant" },
-    { value: "HR_HEAD", label: "HR Head" },
-    { value: "NO_ACCESS", label: "No Access" },
-  ];
 
   const columns = [
     {
@@ -76,45 +70,34 @@ const Users = () => {
       renderCell: (params) => <span>{params.value || "-"}</span>,
     },
     {
-      field: "name",
-      headerName: "Name",
-      width: 200,
-      renderCell: (params) => (
-        <span>
-          {params.row.first_name || params.row.last_name
-            ? `${params.row.first_name || ""} ${
-                params.row.last_name || ""
-              }`.trim()
-            : "-"}
-        </span>
-      ),
-    },
-    {
-      field: "email",
-      headerName: "Email",
+      field: "client_name",
+      headerName: "Client Name",
       width: 200,
       renderCell: (params) => <span>{params.value || "-"}</span>,
     },
     {
-      field: "phone",
-      headerName: "Phone",
+      field: "country_id",
+      headerName: "Country ID",
+      width: 120,
+      renderCell: (params) => <span>{params.value || "-"}</span>,
+    },
+    {
+      field: "description",
+      headerName: "Description",
+      width: 250,
+      renderCell: (params) => <span>{params.value || "-"}</span>,
+    },
+    {
+      field: "thumbnail",
+      headerName: "Thumbnail",
       width: 150,
       renderCell: (params) => <span>{params.value || "-"}</span>,
     },
     {
-      field: "role",
-      headerName: "Role",
-      width: 150,
-      renderCell: (params) => (
-        <span>
-          {params.value
-            ? params.value
-                .replace(/_/g, " ")
-                .toLowerCase()
-                .replace(/\b\w/g, (c) => c.toUpperCase())
-            : "-"}
-        </span>
-      ),
+      field: "priority",
+      headerName: "Priority",
+      width: 100,
+      renderCell: (params) => <span>{params.value || 0}</span>,
     },
     {
       field: "edit",
@@ -124,7 +107,7 @@ const Users = () => {
       renderCell: (params) => (
         <button
           onClick={() => handleOpenEditDialog(params.row)}
-          aria-label="Edit user"
+          aria-label="Edit client"
         >
           <MdEdit className="w-5 h-5 text-gray-500" />
         </button>
@@ -132,23 +115,46 @@ const Users = () => {
     },
   ];
 
-  const handleOpenEditDialog = (user) => {
-    setEditUser(user);
+  const handleOpenEditDialog = (client) => {
+    setEditClient(client);
     setOpenDialog(true);
   };
 
   const handleCloseDialog = () => {
     setOpenDialog(false);
-    setEditUser(null);
+    setEditClient(null);
   };
 
-  const handleSuccess = () => {
-    setOpenDialog(false);
-    setEditUser(null);
-    fetchUsers();
+  const fetchCountries = async () => {
+    try {
+      const response = await fetch(
+        "https://api.accounts.spiderworks.org/api/countries",
+        {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${session?.accessToken}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch countries");
+      }
+
+      const data = await response.json();
+
+      if (data.status === "success" && data.data) {
+        setCountries(data.data?.data);
+      } else {
+        console.error("Failed to fetch countries:", data.message);
+      }
+    } catch (error) {
+      console.error("Failed to fetch countries:", error);
+    }
   };
 
-  const fetchUsers = async () => {
+  const fetchClients = async () => {
     try {
       setLoading(true);
       setFetchError(null);
@@ -157,45 +163,45 @@ const Users = () => {
         page: (page + 1).toString(),
         limit: limit.toString(),
         ...(keyword && { keyword }),
-        ...(role && { role }),
+        ...(countryId && { country_id: countryId }),
       }).toString();
 
-      const response = await fetch(`${BASE_URL}/api/users/list?${query}`, {
+      const response = await fetch(`${BASE_URL}/api/clients/list?${query}`, {
         method: "GET",
         headers: {
-          Authorization: `Bearer ${session.accessToken}`,
+          Authorization: `Bearer ${session?.accessToken}`,
           "Content-Type": "application/json",
         },
       });
 
       if (!response.ok) {
-        throw new Error("Failed to fetch users");
+        throw new Error("Failed to fetch clients");
       }
 
       const data = await response.json();
-      const records = (data.data?.users || [])
+      const records = (data.data?.clients || [])
         .filter((record) => {
           if (!record || typeof record !== "object" || !record.id) {
-            console.warn("Invalid user entry:", record);
+            console.warn("Invalid client entry:", record);
             return false;
           }
           return true;
         })
         .map((record) => ({
           ...record,
-          first_name: record.first_name || null,
-          last_name: record.last_name || null,
-          email: record.email || null,
-          phone: record.phone || null,
-          role: record.role || null,
+          client_name: record.client_name || null,
+          country_id: record.country_id || null,
+          description: record.description || null,
+          thumbnail: record.thumbnail || null,
+          priority: record.priority || 0,
         }));
 
-      setUsers(records);
+      setClients(records);
       setTotal(data.data?.total || 0);
     } catch (error) {
-      console.error("Failed to fetch users:", error);
-      setFetchError("Failed to load users. Please try again.");
-      setUsers([]);
+      console.error("Failed to fetch clients:", error);
+      setFetchError("Failed to load clients. Please try again.");
+      setClients([]);
       setTotal(0);
     } finally {
       setLoading(false);
@@ -203,8 +209,14 @@ const Users = () => {
   };
 
   useEffect(() => {
-    fetchUsers();
-  }, [page, keyword, role]);
+    if (session?.accessToken) {
+      fetchCountries();
+    }
+  }, [session?.accessToken]);
+
+  useEffect(() => {
+    fetchClients();
+  }, [page, keyword, countryId]);
 
   const handleFilterChange = (field, value) => {
     setPage(0);
@@ -212,68 +224,87 @@ const Users = () => {
       case "keyword":
         setKeyword(value);
         break;
-      case "role":
-        setRole(value);
+      case "countryId":
+        setCountryId(value);
         break;
     }
   };
 
-  const handleSyncUsers = async () => {
+  const handleSuccess = () => {
+    setOpenDialog(false);
+    setEditClient(null);
+    fetchClients();
+  };
+
+  const handleSyncClients = async () => {
     try {
       setLoading(true);
       setFetchError(null);
 
-      const authResponse = await fetch(
-        `${BASE_AUTH_URL}/api/user-auth/fetch-all`
+      const externalResponse = await fetch(
+        "https://api.work.spiderworks.org/api/client",
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        }
       );
 
-      if (!authResponse.ok) {
-        throw new Error("Failed to fetch users from auth service");
+      if (!externalResponse.ok) {
+        throw new Error("Failed to fetch clients from external API");
       }
-      const authUsers = await authResponse.json();
 
-      const transformedUsers = (authUsers.data || authUsers).map((user) => {
-        let first_name = null;
-        let last_name = null;
-        if (user.name) {
-          const nameParts = user.name.trim().split(" ");
-          first_name = nameParts[0] || null;
-          last_name =
-            nameParts.length > 1 ? nameParts.slice(1).join(" ") : null;
-        }
+      const externalData = await externalResponse.json();
 
-        return {
-          id: parseInt(user.id, 10),
-          first_name,
-          last_name,
-          email: user.email || null,
-          phone: user.phone || null,
-        };
-      });
+      if (!externalData.success) {
+        throw new Error(
+          externalData.message || "Failed to fetch clients from external API"
+        );
+      }
 
-      const syncResponse = await fetch(`${BASE_URL}/api/users/syncing`, {
+      const clientsToSync = externalData.data.map((client) => ({
+        id: parseInt(client.id, 10),
+        client_name: client.clientName,
+        country_id:
+          client.countryId !== undefined &&
+          client.countryId !== null &&
+          client.countryId !== ""
+            ? Number(client.countryId)
+            : client.countryId,
+        description: client.description,
+        thumbnail: client.thumbnail,
+        priority: 0,
+        project_name:
+          Array.isArray(client.projects) && client.projects.length > 0
+            ? client.projects[0].projectName
+            : null,
+      }));
+
+      const syncResponse = await fetch(`${BASE_URL}/api/clients/syncing`, {
         method: "POST",
         headers: {
+          Authorization: `Bearer ${session?.accessToken}`,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ users: transformedUsers }),
+        body: JSON.stringify({ clients: clientsToSync }),
       });
 
       if (!syncResponse.ok) {
         const errorData = await syncResponse.json();
-        throw new Error(errorData.message || "Failed to sync users");
+        throw new Error(errorData.message || "Failed to sync clients");
       }
 
       const syncData = await syncResponse.json();
-      toast.success(syncData.message || "Users synced successfully!", {
+      toast.success(syncData.message || "Clients synced successfully!", {
         position: "top-right",
       });
 
-      await fetchUsers();
+      await fetchClients();
     } catch (error) {
-      console.error("Failed to sync users:", error);
-      setFetchError("Failed to sync users. Please try again.");
-      toast.error(error.message || "Failed to sync users.", {
+      console.error("Failed to sync clients:", error);
+      setFetchError("Failed to sync clients. Please try again.");
+      toast.error(error.message || "Failed to sync clients.", {
         position: "top-right",
       });
     } finally {
@@ -282,21 +313,25 @@ const Users = () => {
   };
 
   const CustomNoRowsOverlay = () => (
-    <Box sx={{ p: 2, textAlign: "center", color: "gray" }}>No users found</Box>
+    <Box sx={{ p: 2, textAlign: "center", color: "gray" }}>
+      No clients found
+    </Box>
   );
 
   return (
     <div className="min-h-screen bg-white p-4">
       <div className="flex justify-between items-center mb-4">
-        <h1 className="text-xl font-semibold text-gray-800">Users ({total})</h1>
+        <h1 className="text-xl font-semibold text-gray-800">
+          Clients ({total})
+        </h1>
         <div className="flex space-x-2">
           <button
-            onClick={handleSyncUsers}
+            onClick={handleSyncClients}
             className="bg-[rgba(21,184,157,0.85)] hover:bg-[rgb(17,150,128)] text-white px-4 py-2 rounded-md flex items-center space-x-2"
             disabled={loading}
           >
             <MdSync className="w-5 h-5" />
-            <span>Sync Users</span>
+            <span>Sync Clients</span>
           </button>
         </div>
       </div>
@@ -304,18 +339,29 @@ const Users = () => {
       <div className="flex flex-col md:flex-row space-y-4 md:space-y-0 md:space-x-4 mb-4">
         <input
           type="text"
-          placeholder="Search Users"
+          placeholder="Search Clients"
           value={keyword}
           onChange={(e) => handleFilterChange("keyword", e.target.value)}
           className="border border-[rgba(21,184,157,0.85)] bg-white rounded-md px-3 py-2 w-full md:w-1/4 focus:outline-none focus:ring-2 focus:ring-[rgba(21,184,157,0.85)] focus:border-[rgba(21,184,157,0.85)] placeholder-gray-400"
         />
         <Select
-          options={roleOptions}
-          value={roleOptions.find((opt) => opt.value === role) || null}
-          onChange={(selected) =>
-            handleFilterChange("role", selected ? selected.value : null)
+          options={countries.map((country) => ({
+            value: country.id,
+            label: country.name,
+          }))}
+          value={
+            countries.find((country) => country.id === countryId)
+              ? {
+                  value: countryId,
+                  label: countries.find((country) => country.id === countryId)
+                    .name,
+                }
+              : null
           }
-          placeholder="Role"
+          onChange={(selected) =>
+            handleFilterChange("countryId", selected ? selected.value : "")
+          }
+          placeholder="Select Country"
           styles={customSelectStyles}
           className="w-full md:w-1/5"
           isClearable
@@ -331,7 +377,7 @@ const Users = () => {
       ) : (
         <Paper sx={{ width: "100%", boxShadow: "none" }}>
           <DataGrid
-            rows={users}
+            rows={clients}
             getRowId={(row) => row.id}
             columns={columns}
             autoHeight
@@ -381,14 +427,14 @@ const Users = () => {
         </Paper>
       )}
 
-      <UserFormPopup
+      <ClientFormPopup
         open={openDialog}
         onClose={handleCloseDialog}
         onSuccess={handleSuccess}
-        user={editUser}
+        client={editClient}
       />
     </div>
   );
 };
 
-export default Users;
+export default Clients;
