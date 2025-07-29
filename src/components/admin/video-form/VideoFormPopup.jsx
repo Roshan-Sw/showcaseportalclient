@@ -209,7 +209,7 @@ const VideoFormPopup = ({ open, onClose, onSuccess, video }) => {
     const fetchClients = async () => {
       try {
         const response = await fetch(
-          `${BASE_URL}/api/clients/list?page=1&limit=100`,
+          `${BASE_URL}/api/clients/list?page=1&limit=1000`,
           {
             headers: {
               Authorization: `Bearer ${session?.accessToken}`,
