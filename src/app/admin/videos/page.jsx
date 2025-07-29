@@ -15,7 +15,6 @@ import {
   DialogContent,
   DialogActions,
   TextField,
-  IconButton,
   Chip,
 } from "@mui/material";
 import toast, { Toaster } from "react-hot-toast";
@@ -246,6 +245,7 @@ const Videos = () => {
       }
 
       const data = await response.json();
+
       setVideoTags(data.data?.tags || []);
     } catch (error) {
       console.error("Failed to fetch tags:", error);
@@ -352,8 +352,8 @@ const Videos = () => {
 
       const payload = {
         entity_type: "VIDEO",
-        entity_id: selectedTagVideoId,
         tag_name: tagInput.trim(),
+        video_id: selectedTagVideoId,
         created_by: userId,
         updated_by: userId,
       };
@@ -367,12 +367,15 @@ const Videos = () => {
         body: JSON.stringify(payload),
       });
 
+      const data = await response.json();
+
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || "Failed to add tag");
+        throw new Error(data.message || "Failed to add tag");
       }
 
-      toast.success("Tag added successfully!", { position: "top-right" });
+      toast.success(data.message || "Tag added successfully!", {
+        position: "top-right",
+      });
       setTagInput("");
       await fetchTags(selectedTagVideoId);
       await fetchVideos();
@@ -397,12 +400,15 @@ const Videos = () => {
         },
       });
 
+      const data = await response.json();
+
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || "Failed to delete tag");
+        throw new Error(data.message || "Failed to delete tag");
       }
 
-      toast.success("Tag deleted successfully!", { position: "top-right" });
+      toast.success(data.message || "Tag deleted successfully!", {
+        position: "top-right",
+      });
       await fetchTags(selectedTagVideoId);
       await fetchVideos();
     } catch (error) {

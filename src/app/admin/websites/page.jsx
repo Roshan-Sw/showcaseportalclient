@@ -82,6 +82,8 @@ const Websites = () => {
   const [selectedTagWebsiteId, setSelectedTagWebsiteId] = useState(null);
   const [tagInput, setTagInput] = useState("");
   const [websiteTags, setWebsiteTags] = useState([]);
+  const [editTagId, setEditTagId] = useState(null);
+  const [editTagInput, setEditTagInput] = useState("");
   const { data: session } = useSession();
 
   const technologyOptions = technologies.map((tech) => ({
@@ -438,6 +440,8 @@ const Websites = () => {
     setSelectedTagWebsiteId(website.id);
     setTagInput("");
     setWebsiteTags([]);
+    setEditTagId(null);
+    setEditTagInput("");
     fetchTags(website.id);
     setOpenTagModal(true);
   };
@@ -447,6 +451,8 @@ const Websites = () => {
     setSelectedTagWebsiteId(null);
     setTagInput("");
     setWebsiteTags([]);
+    setEditTagId(null);
+    setEditTagInput("");
   };
 
   const handleAddTag = async () => {
@@ -462,7 +468,7 @@ const Websites = () => {
 
       const payload = {
         entity_type: "WEBSITE",
-        entity_id: selectedTagWebsiteId,
+        website_id: selectedTagWebsiteId,
         tag_name: tagInput.trim(),
         created_by: userId,
         updated_by: userId,
@@ -489,6 +495,63 @@ const Websites = () => {
     } catch (error) {
       console.error("Failed to add tag:", error);
       toast.error(error.message || "Failed to add tag.", {
+        position: "top-right",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleEditTag = (tag) => {
+    setEditTagId(tag.id);
+    setEditTagInput(tag.tag_name);
+  };
+
+  const handleCancelEditTag = () => {
+    setEditTagId(null);
+    setEditTagInput("");
+  };
+
+  const handleUpdateTag = async () => {
+    if (!editTagInput.trim()) {
+      toast.error("Tag name cannot be empty.", { position: "top-right" });
+      return;
+    }
+    try {
+      setLoading(true);
+      const userId = session?.user?.id ? Number(session.user.id) : null;
+      if (!userId) throw new Error("User ID not found in session");
+
+      const payload = {
+        tag_name: editTagInput.trim(),
+        updated_by: userId,
+      };
+
+      const response = await fetch(
+        `${BASE_URL}/api/tag-mappings/${editTagId}`,
+        {
+          method: "PUT",
+          headers: {
+            Authorization: `Bearer ${session?.accessToken}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(payload),
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to update tag");
+      }
+
+      toast.success("Tag updated successfully!", { position: "top-right" });
+      setEditTagId(null);
+      setEditTagInput("");
+      await fetchTags(selectedTagWebsiteId);
+      await fetchWebsites();
+    } catch (error) {
+      console.error("Failed to update tag:", error);
+      toast.error(error.message || "Failed to update tag.", {
         position: "top-right",
       });
     } finally {
@@ -781,22 +844,89 @@ const Websites = () => {
           </Typography>
           <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1, mb: 3 }}>
             {websiteTags.length > 0 ? (
-              websiteTags.map((tag) => (
-                <Chip
-                  key={tag.id}
-                  label={tag.tag_name}
-                  onDelete={() => handleDeleteTag(tag.id)}
-                  deleteIcon={<MdDelete />}
-                  sx={{
-                    backgroundColor: "rgba(21,184,157,0.12)",
-                    color: "text.primary",
-                    "& .MuiChip-deleteIcon": {
-                      color: "#ef5350",
-                      "&:hover": { color: "#e53935" },
-                    },
-                  }}
-                />
-              ))
+              websiteTags.map((tag) =>
+                editTagId === tag.id ? (
+                  <Box
+                    key={tag.id}
+                    sx={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 1,
+                      backgroundColor: "rgba(21,184,157,0.12)",
+                      borderRadius: "16px",
+                      px: 1,
+                    }}
+                  >
+                    <TextField
+                      value={editTagInput}
+                      onChange={(e) => setEditTagInput(e.target.value)}
+                      size="small"
+                      variant="outlined"
+                      sx={{
+                        backgroundColor: "white",
+                        "& .MuiOutlinedInput-root": {
+                          "& fieldset": {
+                            borderColor: "rgba(21,184,157,0.85)",
+                          },
+                          "&:hover fieldset": {
+                            borderColor: "rgba(21,184,157,0.85)",
+                          },
+                          "&.Mui-focused fieldset": {
+                            borderColor: "rgba(21,184,157,0.85)",
+                            borderWidth: 2,
+                          },
+                        },
+                        minWidth: 120,
+                      }}
+                      autoFocus
+                    />
+                    <Button
+                      onClick={handleUpdateTag}
+                      size="small"
+                      sx={{
+                        color: "white",
+                        backgroundColor: "rgba(21,184,157,0.85)",
+                        minWidth: 0,
+                        px: 1.5,
+                        "&:hover": { backgroundColor: "rgba(17,150,128)" },
+                      }}
+                      disabled={loading}
+                    >
+                      Save
+                    </Button>
+                    <Button
+                      onClick={handleCancelEditTag}
+                      size="small"
+                      sx={{
+                        color: "#ef5350",
+                        backgroundColor: "#ffebee",
+                        minWidth: 0,
+                        px: 1.5,
+                        "&:hover": { backgroundColor: "#ffcdd2" },
+                      }}
+                      disabled={loading}
+                    >
+                      Cancel
+                    </Button>
+                  </Box>
+                ) : (
+                  <Chip
+                    key={tag.id}
+                    label={tag.tag_name}
+                    onDelete={() => handleDeleteTag(tag.id)}
+                    deleteIcon={<MdDelete />}
+                    sx={{
+                      backgroundColor: "rgba(21,184,157,0.12)",
+                      color: "text.primary",
+                      "& .MuiChip-deleteIcon": {
+                        color: "#ef5350",
+                        "&:hover": { color: "#e53935" },
+                      },
+                    }}
+                    onClick={() => handleEditTag(tag)}
+                  />
+                )
+              )
             ) : (
               <Typography variant="body2" sx={{ color: "text.secondary" }}>
                 No tags assigned
@@ -827,6 +957,7 @@ const Websites = () => {
                 },
               },
             }}
+            disabled={!!editTagId}
           />
         </DialogContent>
         <DialogActions sx={{ justifyContent: "space-between", px: 3, pb: 3 }}>
@@ -854,9 +985,13 @@ const Websites = () => {
               borderRadius: "8px",
               boxShadow: "none",
             }}
-            disabled={loading}
+            disabled={loading || !!editTagId}
           >
-            {loading ? <BeatLoader color="#15b89d" size={8} /> : "Submit"}
+            {loading && !editTagId ? (
+              <BeatLoader color="#15b89d" size={8} />
+            ) : (
+              "Submit"
+            )}
           </Button>
         </DialogActions>
       </Dialog>
