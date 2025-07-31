@@ -12,6 +12,7 @@ import {
   Button,
   TextField,
   Box,
+  MenuItem,
 } from "@mui/material";
 import Slide from "@mui/material/Slide";
 import { BeatLoader } from "react-spinners";
@@ -27,8 +28,8 @@ const createValidationSchema = yup.object().shape({
   id: yup.number().required("ID is required").typeError("ID must be a number"),
   client_id: yup
     .number()
-    .required("Client ID is required")
-    .typeError("Client ID must be a number"),
+    .required("Client is required")
+    .typeError("Client is required"),
   project_name: yup
     .string()
     .required("Project Name is required")
@@ -54,7 +55,54 @@ const editValidationSchema = yup.object().shape({
 const ProjectFormPopup = ({ open, onClose, onSuccess, project }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [clients, setClients] = useState([]);
   const { data: session } = useSession();
+
+  useEffect(() => {
+    const fetchClients = async () => {
+      try {
+        const query = new URLSearchParams({
+          page: "1",
+          limit: "10000",
+        }).toString();
+
+        const response = await fetch(`${BASE_URL}/api/clients/list?${query}`, {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${session?.accessToken}`,
+            "Content-Type": "application/json",
+          },
+        });
+
+        if (!response.ok) {
+          throw new Error("Failed to fetch clients");
+        }
+
+        const data = await response.json();
+        const records = (data.data?.clients || [])
+          .filter((record) => {
+            if (!record || typeof record !== "object" || !record.id) {
+              console.warn("Invalid client entry:", record);
+              return false;
+            }
+            return true;
+          })
+          .map((record) => ({
+            ...record,
+            client_name: record.client_name || null,
+          }));
+
+        setClients(records);
+      } catch (error) {
+        console.error("Failed to fetch clients:", error);
+        setClients([]);
+      }
+    };
+
+    if (open && session?.accessToken) {
+      fetchClients();
+    }
+  }, [open, session?.accessToken]);
 
   const {
     control,
@@ -187,6 +235,11 @@ const ProjectFormPopup = ({ open, onClose, onSuccess, project }) => {
     }
   };
 
+  const getClientNameById = (id) => {
+    const client = clients.find((c) => String(c.id) === String(id));
+    return client ? client.client_name : "";
+  };
+
   return (
     <Dialog
       open={open}
@@ -251,38 +304,76 @@ const ProjectFormPopup = ({ open, onClose, onSuccess, project }) => {
             />
           </Box>
           <Box>
-            <label className="block mb-1">Client ID {project ? "" : "*"}</label>
+            <label className="block mb-1">Client {project ? "" : "*"}</label>
             <Controller
               name="client_id"
               control={control}
-              render={({ field }) => (
-                <TextField
-                  {...field}
-                  value={field.value ?? ""}
-                  fullWidth
-                  variant="outlined"
-                  size="small"
-                  type="number"
-                  error={!!errors.client_id}
-                  helperText={errors.client_id?.message}
-                  sx={{
-                    backgroundColor: "white",
-                    "& .MuiOutlinedInput-root": {
-                      "& fieldset": {
-                        borderColor: "rgba(21,184,157,0.85)",
+              render={({ field }) =>
+                project ? (
+                  <TextField
+                    fullWidth
+                    variant="outlined"
+                    size="small"
+                    disabled
+                    error={!!errors.client_id}
+                    helperText={errors.client_id?.message}
+                    sx={{
+                      backgroundColor: "white",
+                      "& .MuiOutlinedInput-root": {
+                        "& fieldset": {
+                          borderColor: "rgba(21,184,157,0.85)",
+                        },
+                        "&:hover fieldset": {
+                          borderColor: "rgba(21,184,157,0.85)",
+                        },
+                        "&.Mui-focused fieldset": {
+                          borderColor: "rgba(21,184,157,0.85)",
+                          borderWidth: 2,
+                        },
                       },
-                      "&:hover fieldset": {
-                        borderColor: "rgba(21,184,157,0.85)",
+                    }}
+                    InputProps={{
+                      readOnly: true,
+                    }}
+                    value={getClientNameById(field.value)}
+                  />
+                ) : (
+                  <TextField
+                    {...field}
+                    select
+                    value={field.value ?? ""}
+                    fullWidth
+                    variant="outlined"
+                    size="small"
+                    error={!!errors.client_id}
+                    helperText={errors.client_id?.message}
+                    sx={{
+                      backgroundColor: "white",
+                      "& .MuiOutlinedInput-root": {
+                        "& fieldset": {
+                          borderColor: "rgba(21,184,157,0.85)",
+                        },
+                        "&:hover fieldset": {
+                          borderColor: "rgba(21,184,157,0.85)",
+                        },
+                        "&.Mui-focused fieldset": {
+                          borderColor: "rgba(21,184,157,0.85)",
+                          borderWidth: 2,
+                        },
                       },
-                      "&.Mui-focused fieldset": {
-                        borderColor: "rgba(21,184,157,0.85)",
-                        borderWidth: 2,
-                      },
-                    },
-                  }}
-                  disabled={!!project}
-                />
-              )}
+                    }}
+                  >
+                    <MenuItem value="">
+                      <em>Select Client</em>
+                    </MenuItem>
+                    {clients.map((client) => (
+                      <MenuItem key={client.id} value={client.id}>
+                        {client.client_name || `Client #${client.id}`}
+                      </MenuItem>
+                    ))}
+                  </TextField>
+                )
+              }
             />
           </Box>
           <Box>

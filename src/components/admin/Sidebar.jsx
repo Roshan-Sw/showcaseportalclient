@@ -10,7 +10,9 @@ import {
   FiCpu,
   FiGlobe,
   FiVideo,
+  FiPenTool,
 } from "react-icons/fi";
+import { FaUsersGear } from "react-icons/fa6";
 import { useState } from "react";
 import { Popover } from "@mui/material";
 
@@ -25,7 +27,7 @@ export default function Sidebar({
 
   const navItems = [
     {
-      icon: <FaUsers className="w-6 h-6 flex-shrink-0" />,
+      icon: <FaUsersGear className="w-6 h-6 flex-shrink-0" />,
       label: "User Management",
       path: "/admin/user-management",
       exact: false,
@@ -71,6 +73,13 @@ export default function Sidebar({
       icon: <FiVideo className="w-6 h-6 flex-shrink-0" />,
       label: "Videos",
       path: "/admin/videos",
+      exact: false,
+      isParent: false,
+    },
+    {
+      icon: <FiPenTool className="w-6 h-6 flex-shrink-0" />,
+      label: "Creatives",
+      path: "/admin/creatives",
       exact: false,
       isParent: false,
     },
