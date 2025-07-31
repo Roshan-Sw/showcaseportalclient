@@ -119,13 +119,13 @@ const Videos = () => {
       renderCell: (params) => <span>{params.value || "-"}</span>,
     },
     {
-      field: "thumbnail",
+      field: "thumbnail_presigned_url",
       headerName: "Thumbnail",
       width: 150,
       renderCell: (params) =>
         params.value ? (
           <img
-            src={`${BASE_URL}/${params.value}`}
+            src={`${params.value}`}
             alt="Thumbnail"
             className="h-10 w-10 mt-2 object-contain"
             onError={(e) => (e.target.src = "/fallback-image.png")}
