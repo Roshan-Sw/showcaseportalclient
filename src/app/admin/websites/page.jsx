@@ -126,7 +126,7 @@ const Websites = () => {
       renderCell: (params) => <span>{params.value || "-"}</span>,
     },
     {
-      field: "thumbnail_presigned_url",
+      field: "thumbnail_public_url",
       headerName: "Thumbnail",
       width: 150,
       renderCell: (params) =>
